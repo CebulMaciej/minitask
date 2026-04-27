@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Testcontainers.MongoDb;
 using FitPlan.Application.Common.Interfaces;
@@ -49,6 +51,14 @@ public class FitPlanWebFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
         builder.ConfigureServices(services =>
         {
+            // Program.cs uses Serilog two-phase bootstrap logger (CreateBootstrapLogger).
+            // When test classes run in parallel, multiple factories concurrently call
+            // ReloadableLogger.Freeze() on the same global Log.Logger — the second call throws.
+            // Replace all ILoggerFactory registrations with NullLoggerFactory to avoid this.
+            var loggerFactories = services.Where(d => d.ServiceType == typeof(ILoggerFactory)).ToList();
+            foreach (var d in loggerFactories) services.Remove(d);
+            services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
+
             var emailDesc = services.SingleOrDefault(d => d.ServiceType == typeof(IEmailService));
             if (emailDesc != null) services.Remove(emailDesc);
             services.AddScoped<IEmailService>(_ => EmailServiceMock.Object);
