@@ -1,0 +1,228 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  # ─── .NET: Build + Unit Tests ────────────────────────────────
+  dotnet-build:
+    name: .NET Build & Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Check formatting
+        run: dotnet format --verify-no-changes
+
+      - name: Build
+        run: dotnet build -c Release --no-restore
+
+      - name: Run Domain unit tests
+        run: dotnet test tests/FitPlan.Domain.Tests --no-build -c Release --logger "trx" --results-directory TestResults
+
+      - name: Run Application unit tests
+        run: dotnet test tests/FitPlan.Application.Tests --no-build -c Release --logger "trx" --results-directory TestResults
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dotnet-test-results
+          path: backend/TestResults/
+
+  # ─── .NET: Integration Tests (MongoDB via service container) ─
+  dotnet-integration:
+    name: .NET Integration Tests
+    runs-on: ubuntu-latest
+    needs: dotnet-build
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      mongodb:
+        image: mongo:7
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: testpassword
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval \"db.adminCommand('ping').ok\""
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build -c Release --no-restore
+
+      - name: Run integration tests
+        run: dotnet test tests/FitPlan.Api.IntegrationTests --no-build -c Release --logger "trx" --results-directory TestResults
+        env:
+          MongoDB__ConnectionString: mongodb://root:testpassword@localhost:27017
+          MongoDB__DatabaseName: fitplan_test
+          Jwt__Secret: ci-test-secret-32-characters-long
+          Jwt__Issuer: fitplan-api
+          Jwt__Audience: fitplan-client
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results
+          path: backend/TestResults/
+
+  # ─── Vue 3: Type Check + Lint + Unit Tests ───────────────────
+  frontend-check:
+    name: Frontend Type Check, Lint & Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: latest
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint:check
+
+      - name: Unit tests
+        run: pnpm test:unit
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: ./frontend/coverage/lcov.info
+          flags: frontend
+
+  # ─── Docker Build Validation ─────────────────────────────────
+  docker-build:
+    name: Docker Build Validation
+    runs-on: ubuntu-latest
+    needs: [dotnet-build, frontend-check]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build API Docker image
+        run: docker build -t fitplan-api:ci -f Dockerfile .
+
+      - name: Build Frontend Docker image
+        run: docker build -t fitplan-frontend:ci -f Dockerfile.frontend .
+
+  # ─── E2E Tests (Playwright against production stack) ─────
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [docker-build, dotnet-integration]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: latest
+
+      - name: Install Playwright dependencies
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+
+      - name: Start production stack
+        run: |
+          docker build -t fitplan-api:e2e -f Dockerfile .
+          docker build -t fitplan-frontend:e2e -f Dockerfile.frontend .
+          MONGO_PASSWORD=e2e-test-password \
+          JWT_SECRET=e2e-test-secret-32-characters-long \
+          SMTP_HOST=localhost SMTP_PORT=1025 \
+          SMTP_USERNAME= SMTP_PASSWORD= \
+          SMTP_FROM=noreply@fitplan.test \
+          GOOGLE_CLIENT_ID= GOOGLE_CLIENT_SECRET= \
+          GOOGLE_REDIRECT_URI=http://localhost/api/auth/google/callback \
+          FRONTEND_URL=http://localhost \
+          PORT=80 \
+          docker compose -f docker-compose.prod.yml up -d
+
+      - name: Wait for app to be ready
+        run: |
+          timeout 60 bash -c 'until curl -sf http://localhost/; do sleep 2; done'
+          timeout 60 bash -c 'until curl -sf http://localhost/api/health; do sleep 2; done'
+
+      - name: Run E2E tests
+        working-directory: frontend
+        run: pnpm test:e2e
+        env:
+          BASE_URL: http://localhost
+          CI: true
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+
+      - name: Stop stack
+        run: docker compose -f docker-compose.prod.yml down -v
+        if: always()
