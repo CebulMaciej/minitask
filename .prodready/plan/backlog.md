@@ -294,7 +294,7 @@ Implement real SMTP email service (replaces dev console stub).
 ---
 
 ### TASK-016: Google OAuth2
-**Priority**: P1 | **Estimate**: 3h | **Status**: Ready
+**Priority**: P1 | **Estimate**: 3h | **Status**: Done
 
 **Description**:
 Implement Google OAuth2 Authorization Code flow — backend-handled.

@@ -22,6 +22,11 @@ const router = createRouter({
       component: () => import('@/pages/ConfirmEmailPage.vue')
     },
     {
+      path: '/auth/google/callback',
+      name: 'google-callback',
+      component: () => import('@/pages/GoogleCallbackPage.vue')
+    },
+    {
       path: '/clients/:clientId/sessions/:sessionId/live',
       name: 'live-session',
       component: () => import('@/pages/LiveSessionPage.vue'),
