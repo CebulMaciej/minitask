@@ -1,0 +1,89 @@
+version: '3.9'
+
+services:
+  # ─── .NET API (dev — hot reload via dotnet watch) ──────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: build
+    volumes:
+      - ./backend:/src
+    ports:
+      - "5001:5000"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5000
+      MongoDB__ConnectionString: mongodb://root:${MONGO_PASSWORD:-mongopassword}@mongodb:27017
+      MongoDB__DatabaseName: fitplan_dev
+      Jwt__Secret: ${JWT_SECRET:-dev-secret-change-in-production-min-32-chars}
+      Jwt__Issuer: fitplan-api
+      Jwt__Audience: fitplan-client
+      Smtp__Host: ${SMTP_HOST:-mailhog}
+      Smtp__Port: ${SMTP_PORT:-1025}
+      Smtp__Username: ${SMTP_USERNAME:-}
+      Smtp__Password: ${SMTP_PASSWORD:-}
+      Smtp__From: ${SMTP_FROM:-noreply@fitplan.dev}
+      Google__ClientId: ${GOOGLE_CLIENT_ID:-}
+      Google__ClientSecret: ${GOOGLE_CLIENT_SECRET:-}
+    working_dir: /src
+    command: dotnet watch run --project src/FitPlan.Api/FitPlan.Api.csproj
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - fitplan-net
+
+  # ─── Vue 3 Frontend (dev — Vite HMR) ─────────────────────────
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:5000
+    command: sh -c "corepack enable && pnpm install && pnpm dev --host 0.0.0.0"
+    depends_on:
+      - api
+    networks:
+      - fitplan-net
+
+  # ─── MongoDB ──────────────────────────────────────────────────
+  mongodb:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-mongopassword}
+      MONGO_INITDB_DATABASE: fitplan_dev
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - fitplan-net
+
+  # ─── MailHog (dev email catch-all) ───────────────────────────
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI — view emails at http://localhost:8025
+    networks:
+      - fitplan-net
+
+volumes:
+  mongodb_data:
+  frontend_node_modules:
+
+networks:
+  fitplan-net:
+    driver: bridge

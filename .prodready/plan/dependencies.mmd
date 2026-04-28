@@ -1,0 +1,113 @@
+flowchart TD
+    subgraph S1[Sprint 1: Foundation]
+        T001[TASK-001\nSolution Setup]
+        T002[TASK-002\nMongoDB Infra]
+        T003[TASK-003\nDocker Dev]
+        T004[TASK-004\nJWT Service]
+        T005[TASK-005\nTrainer Register\n+ Email Confirm]
+        T006[TASK-006\nTrainer Login\n+ Refresh]
+        T007[TASK-007\nPassword Reset]
+    end
+
+    subgraph S2[Sprint 2: Tenant + Clients]
+        T008[TASK-008\nTenant Isolation\nBehavior]
+        T009[TASK-009\nClient Mgmt\nBackend]
+        T010[TASK-010\nClient Auth\nPortal Login]
+    end
+
+    subgraph S3[Sprint 3: Session Backend]
+        T011[TASK-011\nWorkoutSession\nDomain]
+        T012[TASK-012\nSession Scheduling\nBackend]
+        T013[TASK-013\nLive Session\nBackend]
+        T014[TASK-014\nClient Portal\nBackend]
+    end
+
+    subgraph S4[Sprint 4: OAuth + Email]
+        T015[TASK-015\nSMTP Email\nService]
+        T016[TASK-016\nGoogle OAuth2]
+    end
+
+    subgraph S5[Sprint 5: Frontend Foundation]
+        T017[TASK-017\nVue 3 Setup]
+        T018[TASK-018\nFitPlan\nDark Theme]
+        T019[TASK-019\nAPI Client\n+ Auth Store]
+        T020[TASK-020\nAuth Pages\n+ Guards]
+        T021[TASK-021\nAppShell\nLayout]
+    end
+
+    subgraph S6[Sprint 6: Trainer UI]
+        T022[TASK-022\nClient List\nPage]
+        T023[TASK-023\nCalendar View]
+        T024[TASK-024\nSession Form\n+ Exercise Builder]
+    end
+
+    subgraph S7[Sprint 7: Live Session UI]
+        T025[TASK-025\nLive Session\nPage]
+        T026[TASK-026\nProgress Badge\n+ Persistence]
+    end
+
+    subgraph S8[Sprint 8: Client Portal UI]
+        T027[TASK-027\nClient Portal\nPages]
+    end
+
+    subgraph S9[Sprint 9: Quality]
+        T028[TASK-028\nError Handling]
+        T029[TASK-029\nLoading + Empty\nStates]
+        T030[TASK-030\nE2E Tests]
+        T031[TASK-031\nGitHub Actions CI]
+    end
+
+    %% Foundation dependencies
+    T001 --> T002
+    T001 --> T003
+    T001 --> T011
+    T002 --> T004
+    T004 --> T005
+    T005 --> T006
+    T005 --> T007
+    T005 --> T015
+
+    %% Tenant + client dependencies
+    T006 --> T008
+    T008 --> T009
+    T009 --> T010
+    T010 --> T014
+
+    %% Session dependencies
+    T011 --> T012
+    T012 --> T013
+    T013 --> T014
+    T009 --> T012
+
+    %% OAuth
+    T006 --> T016
+
+    %% Frontend dependencies
+    T001 --> T017
+    T017 --> T018
+    T018 --> T019
+    T019 --> T020
+    T020 --> T021
+    T021 --> T022
+    T022 --> T023
+    T023 --> T024
+    T024 --> T025
+    T025 --> T026
+    T020 --> T027
+
+    %% Quality
+    T021 --> T028
+    T022 --> T029
+    T027 --> T029
+    T026 --> T030
+    T027 --> T030
+    T003 --> T031
+    T017 --> T031
+
+    %% Styling
+    style T001 fill:#1a1a2e,color:#C8FF00,stroke:#C8FF00
+    style T002 fill:#1a1a2e,color:#C8FF00,stroke:#C8FF00
+    style T003 fill:#1a1a2e,color:#C8FF00,stroke:#C8FF00
+    style T004 fill:#1a1a2e,color:#C8FF00,stroke:#C8FF00
+    style T005 fill:#1a1a2e,color:#C8FF00,stroke:#C8FF00
+    style T006 fill:#1a1a2e,color:#C8FF00,stroke:#C8FF00

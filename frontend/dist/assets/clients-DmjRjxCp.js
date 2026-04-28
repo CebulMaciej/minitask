@@ -1,0 +1,1 @@
+import{m as e}from"./index-CV-u26GT.js";const n={list:()=>e.get("/clients").then(t=>t.data),get:t=>e.get(`/clients/${t}`).then(a=>a.data),add:t=>e.post("/clients",t).then(a=>a.data),remove:t=>e.delete(`/clients/${t}`)};export{n as c};

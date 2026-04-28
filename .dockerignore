@@ -1,0 +1,43 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# .NET artifacts
+backend/**/bin/
+backend/**/obj/
+backend/**/.vs/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.nuxt/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing / Coverage
+**/coverage/
+**/.nyc_output/
+**/TestResults/
+
+# ProdReady artifacts
+.prodready/
+
+# Docs (not needed in image)
+*.md
+!README.md
+DEPLOYMENT.md

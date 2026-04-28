@@ -1,0 +1,20 @@
+# Build outputs
+bin/
+obj/
+
+# Dependencies
+node_modules/
+
+# .NET user-specific files
+*.user
+*.suo
+.vs/
+
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db

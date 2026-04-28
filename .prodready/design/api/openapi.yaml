@@ -1,0 +1,974 @@
+openapi: 3.1.0
+info:
+  title: FitPlan API
+  version: 1.0.0
+  description: Multi-tenant personal trainer platform — workout scheduling, live sessions, client portal.
+
+servers:
+  - url: http://localhost:5000/api
+    description: Development
+  - url: https://api.fitplan.app/api
+    description: Production
+
+tags:
+  - name: auth
+    description: Authentication — trainer and client login, registration, token management
+  - name: trainer
+    description: Trainer profile
+  - name: clients
+    description: Client management (trainer-scoped)
+  - name: sessions
+    description: Workout session scheduling and management
+  - name: live-session
+    description: Live training session mode
+  - name: portal
+    description: Client portal — completed workout history
+
+paths:
+
+  # ─── AUTH ────────────────────────────────────────────────────────────────────
+
+  /auth/register:
+    post:
+      tags: [auth]
+      summary: Register a new trainer account
+      operationId: registerTrainer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Trainer registered — confirmation email sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /auth/confirm-email:
+    post:
+      tags: [auth]
+      summary: Confirm email address using token from email link
+      operationId: confirmEmail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmEmailRequest'
+      responses:
+        '200':
+          description: Email confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Login with email and password (trainer or client)
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful — access token returned, refresh token set in HttpOnly cookie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/google:
+    get:
+      tags: [auth]
+      summary: Initiate Google OAuth2 flow — redirects to Google
+      operationId: googleOAuthInitiate
+      responses:
+        '302':
+          description: Redirect to Google OAuth consent screen
+
+  /auth/google/callback:
+    get:
+      tags: [auth]
+      summary: Google OAuth2 callback — exchanges code for JWT
+      operationId: googleOAuthCallback
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OAuth successful — access token returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: Refresh access token using HttpOnly refresh token cookie
+      operationId: refreshToken
+      responses:
+        '200':
+          description: New access token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Logout — revoke refresh token
+      operationId: logout
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Logged out, refresh token revoked
+
+  /auth/forgot-password:
+    post:
+      tags: [auth]
+      summary: Request password reset email
+      operationId: forgotPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          description: Reset email sent (always 200 to avoid email enumeration)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /auth/reset-password:
+    post:
+      tags: [auth]
+      summary: Reset password using token from email
+      operationId: resetPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  # ─── TRAINER ─────────────────────────────────────────────────────────────────
+
+  /trainer/me:
+    get:
+      tags: [trainer]
+      summary: Get current trainer profile
+      operationId: getTrainerProfile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Trainer profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainerProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ─── CLIENTS ─────────────────────────────────────────────────────────────────
+
+  /clients:
+    get:
+      tags: [clients]
+      summary: List all clients for the authenticated trainer
+      operationId: listClients
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of clients
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClientSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [clients]
+      summary: Add a new client to trainer's roster
+      operationId: addClient
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddClientRequest'
+      responses:
+        '201':
+          description: Client created — invitation email sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /clients/{clientId}:
+    get:
+      tags: [clients]
+      summary: Get client detail
+      operationId: getClient
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+      responses:
+        '200':
+          description: Client detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [clients]
+      summary: Remove client from trainer's roster
+      operationId: removeClient
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+      responses:
+        '204':
+          description: Client removed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─── SESSIONS ────────────────────────────────────────────────────────────────
+
+  /clients/{clientId}/sessions:
+    get:
+      tags: [sessions]
+      summary: List sessions for a client (optionally filtered by date range for calendar)
+      operationId: listSessions
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+        - name: from
+          in: query
+          description: Start of date range (ISO 8601)
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          description: End of date range (ISO 8601)
+          schema:
+            type: string
+            format: date
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/SessionStatus'
+      responses:
+        '200':
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SessionSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [sessions]
+      summary: Schedule a new workout session
+      operationId: createSession
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /clients/{clientId}/sessions/{sessionId}:
+    get:
+      tags: [sessions]
+      summary: Get session detail with exercises
+      operationId: getSession
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Session detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [sessions]
+      summary: Update session (time, exercises)
+      operationId: updateSession
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSessionRequest'
+      responses:
+        '200':
+          description: Session updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [sessions]
+      summary: Delete a session
+      operationId: deleteSession
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '204':
+          description: Session deleted
+        '400':
+          description: Cannot delete — session is in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─── LIVE SESSION ─────────────────────────────────────────────────────────────
+
+  /clients/{clientId}/sessions/{sessionId}/start:
+    post:
+      tags: [live-session]
+      summary: Start a live training session (PLANNED → IN_PROGRESS)
+      operationId: startSession
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Session started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionDetail'
+        '400':
+          description: Session is not in PLANNED status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /clients/{clientId}/sessions/{sessionId}/exercises/{exerciseId}:
+    patch:
+      tags: [live-session]
+      summary: Log actual performance for an exercise during live session
+      operationId: logExerciseActuals
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+        - $ref: '#/components/parameters/SessionId'
+        - $ref: '#/components/parameters/ExerciseId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogExerciseActualsRequest'
+      responses:
+        '200':
+          description: Exercise actuals updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Exercise'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /clients/{clientId}/sessions/{sessionId}/complete:
+    post:
+      tags: [live-session]
+      summary: Complete the live session (IN_PROGRESS → COMPLETED)
+      operationId: completeSession
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Session completed and saved to client history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionDetail'
+        '400':
+          description: Session is not in IN_PROGRESS status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─── CLIENT PORTAL ────────────────────────────────────────────────────────────
+
+  /portal/sessions:
+    get:
+      tags: [portal]
+      summary: List completed sessions for the logged-in client
+      operationId: listClientSessions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: Paginated list of completed sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSessions'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /portal/sessions/{sessionId}:
+    get:
+      tags: [portal]
+      summary: Get session detail for the logged-in client
+      operationId: getClientSession
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Session detail with planned vs actual values
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+# ─── COMPONENTS ───────────────────────────────────────────────────────────────
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ClientId:
+      name: clientId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    ExerciseId:
+      name: exerciseId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+
+    # ── Auth ──────────────────────────────────────────────────────────────────
+
+    RegisterRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+
+    LoginRequest:
+      type: object
+      required: [email, password, userType]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        userType:
+          type: string
+          enum: [TRAINER, CLIENT]
+
+    ConfirmEmailRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    ResetPasswordRequest:
+      type: object
+      required: [token, newPassword]
+      properties:
+        token:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+
+    AuthResponse:
+      type: object
+      required: [accessToken, userType]
+      properties:
+        accessToken:
+          type: string
+          description: JWT access token (15 min TTL)
+        userType:
+          type: string
+          enum: [TRAINER, CLIENT]
+
+    MessageResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    # ── Trainer ───────────────────────────────────────────────────────────────
+
+    TrainerProfile:
+      type: object
+      required: [id, name, email, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        createdAt:
+          type: string
+          format: date-time
+
+    # ── Clients ───────────────────────────────────────────────────────────────
+
+    AddClientRequest:
+      type: object
+      required: [name, email]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        email:
+          type: string
+          format: email
+
+    ClientSummary:
+      type: object
+      required: [id, name, email, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        createdAt:
+          type: string
+          format: date-time
+
+    ClientDetail:
+      allOf:
+        - $ref: '#/components/schemas/ClientSummary'
+        - type: object
+          properties:
+            totalSessions:
+              type: integer
+            lastSessionAt:
+              type: string
+              format: date-time
+              nullable: true
+
+    # ── Sessions ──────────────────────────────────────────────────────────────
+
+    SessionStatus:
+      type: string
+      enum: [PLANNED, IN_PROGRESS, COMPLETED, CANCELLED]
+
+    ExerciseInput:
+      type: object
+      required: [name, sets, reps]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        sets:
+          type: integer
+          minimum: 1
+        reps:
+          type: integer
+          minimum: 1
+        targetWeight:
+          type: number
+          format: float
+          nullable: true
+          description: null for bodyweight exercises
+
+    Exercise:
+      type: object
+      required: [id, name, order, sets, reps, unexpectedProgress]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        order:
+          type: integer
+        sets:
+          type: integer
+        reps:
+          type: integer
+        targetWeight:
+          type: number
+          format: float
+          nullable: true
+        actualSets:
+          type: integer
+          nullable: true
+        actualReps:
+          type: integer
+          nullable: true
+        actualWeight:
+          type: number
+          format: float
+          nullable: true
+        unexpectedProgress:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+
+    CreateSessionRequest:
+      type: object
+      required: [scheduledAt, exercises]
+      properties:
+        scheduledAt:
+          type: string
+          format: date-time
+        exercises:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExerciseInput'
+          minItems: 1
+
+    UpdateSessionRequest:
+      type: object
+      properties:
+        scheduledAt:
+          type: string
+          format: date-time
+        exercises:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExerciseInput'
+
+    LogExerciseActualsRequest:
+      type: object
+      properties:
+        actualSets:
+          type: integer
+          minimum: 1
+          nullable: true
+        actualReps:
+          type: integer
+          minimum: 1
+          nullable: true
+        actualWeight:
+          type: number
+          format: float
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    SessionSummary:
+      type: object
+      required: [id, scheduledAt, status, exerciseCount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        scheduledAt:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+        exerciseCount:
+          type: integer
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    SessionDetail:
+      type: object
+      required: [id, clientId, trainerId, scheduledAt, status, exercises]
+      properties:
+        id:
+          type: string
+          format: uuid
+        clientId:
+          type: string
+          format: uuid
+        trainerId:
+          type: string
+          format: uuid
+        scheduledAt:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+        exercises:
+          type: array
+          items:
+            $ref: '#/components/schemas/Exercise'
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    PaginatedSessions:
+      type: object
+      required: [items, total, page, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionSummary'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    # ── Errors ────────────────────────────────────────────────────────────────
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Missing or invalid authentication token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Forbidden:
+      description: Authenticated but not authorized to access this resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Conflict:
+      description: Resource already exists
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
