@@ -1,6 +1,18 @@
 version: '3.9'
 
 services:
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.3.0
+    command:
+      [
+        "tunnel",
+        "--no-autoupdate",
+        "run",
+        "--token",
+        "eyJhIjoiNTk2NzE1MDkzNWJhN2NjNjI2NDJhZTg2ZTU2ZDU3ZDYiLCJ0IjoiMzUwZmQ0ZWItYzNlYS00MGQ4LWI4NWQtYjZlNTc1MWMxNTliIiwicyI6IllqUTNZVGRpWWprdE1HTTROQzAwTkRNMExXSXhNamd0TWpnMk5EazVOakl4TURKayJ9"
+      ]
+    restart: unless-stopped
   # ─── .NET API (dev — hot reload via dotnet watch) ──────────────
   api:
     build:
