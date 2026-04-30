@@ -13,12 +13,13 @@
     <div class="grid grid-cols-3 gap-3 text-center text-sm">
       <div v-for="field in fields" :key="field.key">
         <p class="text-text-muted text-xs mb-1">{{ field.label }}</p>
+        <p class="text-text-muted text-[10px]">plan</p>
         <p class="text-text-secondary font-mono">{{ planned(field.key) }}</p>
+        <p class="text-text-muted text-[10px] mt-1.5">actual</p>
         <p
-          class="font-mono font-semibold mt-0.5"
+          class="font-mono font-semibold"
           :class="exercise.unexpectedProgress ? 'text-accent' : 'text-text-primary'"
         >{{ actual(field.key) }}</p>
-        <p class="text-text-muted text-[10px] mt-0.5">actual</p>
       </div>
     </div>
   </div>

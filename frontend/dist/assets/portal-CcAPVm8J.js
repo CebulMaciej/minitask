@@ -1,0 +1,1 @@
+import{m as a}from"./index-BrhLB4Ho.js";const i={listSessions:(s=1,t=20)=>a.get("/portal/sessions",{params:{page:s,pageSize:t}}).then(e=>e.data),getSession:s=>a.get(`/portal/sessions/${s}`).then(t=>t.data)};export{i as p};

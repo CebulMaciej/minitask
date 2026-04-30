@@ -4,9 +4,14 @@
       <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="$emit('close')" />
       <div class="relative bg-bg-elevated rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[90vh] flex flex-col shadow-elevated">
         <div class="flex items-center justify-between px-5 pt-5 pb-4 border-b border-border-default flex-shrink-0">
-          <h2 class="font-display text-2xl text-text-primary tracking-wide">
-            {{ isEdit ? 'EDIT SESSION' : 'NEW SESSION' }}
-          </h2>
+          <div>
+            <h2 class="font-display text-2xl text-text-primary tracking-wide">
+              {{ modalTitle }}
+            </h2>
+            <p v-if="isReadOnly && session" class="text-text-muted text-xs mt-0.5">
+              {{ completedDateLabel }}
+            </p>
+          </div>
           <button @click="$emit('close')" class="text-text-muted hover:text-text-primary transition">
             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -14,7 +19,17 @@
           </button>
         </div>
 
-        <div class="flex-1 overflow-y-auto px-5 py-4">
+        <!-- Read-only results view for completed/cancelled sessions -->
+        <div v-if="isReadOnly" class="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+          <ExerciseResultRow
+            v-for="exercise in session!.exercises"
+            :key="exercise.id"
+            :exercise="exercise"
+          />
+        </div>
+
+        <!-- Edit form for planned/in-progress sessions -->
+        <div v-else class="flex-1 overflow-y-auto px-5 py-4">
           <div class="mb-4">
             <label class="block text-sm text-text-secondary mb-1">Date & Time</label>
             <input
@@ -54,42 +69,55 @@
         </div>
 
         <div class="px-5 py-4 border-t border-border-default flex-shrink-0 space-y-2">
+          <!-- Completed/cancelled: only close -->
           <button
-            v-if="session?.status === 'PLANNED' || session?.status === 'IN_PROGRESS'"
+            v-if="isReadOnly"
             type="button"
-            @click="goToLive"
-            class="w-full py-2.5 rounded-lg font-semibold text-sm transition"
-            :class="session?.status === 'IN_PROGRESS'
-              ? 'bg-primary/20 text-primary border border-primary/40 hover:bg-primary/30'
-              : 'bg-primary text-text-inverse hover:bg-primary-dark'"
+            @click="$emit('close')"
+            class="w-full border border-border-default text-text-secondary py-2.5 rounded-lg hover:bg-bg-subtle transition text-sm"
           >
-            {{ session?.status === 'IN_PROGRESS' ? 'Continue Session' : 'Start Session' }}
+            Close
           </button>
-          <p v-if="submitError" class="text-sm text-red-400">{{ submitError }}</p>
-          <div class="flex gap-3">
+
+          <!-- Editable sessions: original buttons -->
+          <template v-else>
             <button
-              v-if="isEdit"
+              v-if="session?.status === 'PLANNED' || session?.status === 'IN_PROGRESS'"
               type="button"
-              @click="showDeleteConfirm = true"
-              class="px-4 py-2.5 border border-red-500/50 text-red-400 rounded-lg hover:bg-red-500/10 transition text-sm"
+              @click="goToLive"
+              class="w-full py-2.5 rounded-lg font-semibold text-sm transition"
+              :class="session?.status === 'IN_PROGRESS'
+                ? 'bg-primary/20 text-primary border border-primary/40 hover:bg-primary/30'
+                : 'bg-primary text-text-inverse hover:bg-primary-dark'"
             >
-              Delete
+              {{ session?.status === 'IN_PROGRESS' ? 'Continue Session' : 'Start Session' }}
             </button>
-            <button
-              type="button"
-              @click="$emit('close')"
-              class="flex-1 border border-border-default text-text-secondary py-2.5 rounded-lg hover:bg-bg-subtle transition text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              @click="handleSave"
-              :disabled="loading"
-              class="flex-1 bg-primary text-text-inverse font-semibold py-2.5 rounded-lg hover:bg-primary-dark transition disabled:opacity-50 text-sm"
-            >
-              {{ loading ? 'Saving…' : 'Save' }}
-            </button>
-          </div>
+            <p v-if="submitError" class="text-sm text-red-400">{{ submitError }}</p>
+            <div class="flex gap-3">
+              <button
+                v-if="isEdit"
+                type="button"
+                @click="showDeleteConfirm = true"
+                class="px-4 py-2.5 border border-red-500/50 text-red-400 rounded-lg hover:bg-red-500/10 transition text-sm"
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                @click="$emit('close')"
+                class="flex-1 border border-border-default text-text-secondary py-2.5 rounded-lg hover:bg-bg-subtle transition text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                @click="handleSave"
+                :disabled="loading"
+                class="flex-1 bg-primary text-text-inverse font-semibold py-2.5 rounded-lg hover:bg-primary-dark transition disabled:opacity-50 text-sm"
+              >
+                {{ loading ? 'Saving…' : 'Save' }}
+              </button>
+            </div>
+          </template>
         </div>
       </div>
     </div>
@@ -108,10 +136,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { sessionsApi, type WorkoutSession } from '@/api/sessions'
 import ExerciseRow from './ExerciseRow.vue'
+import ExerciseResultRow from '@/components/portal/ExerciseResultRow.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 
 const props = defineProps<{
@@ -131,6 +160,24 @@ function goToLive() {
 }
 
 const isEdit = !!props.session
+const isReadOnly = computed(
+  () => props.session?.status === 'COMPLETED' || props.session?.status === 'CANCELLED'
+)
+
+const modalTitle = computed(() => {
+  if (props.session?.status === 'COMPLETED') return 'SESSION RESULTS'
+  if (props.session?.status === 'CANCELLED') return 'CANCELLED SESSION'
+  return isEdit ? 'EDIT SESSION' : 'NEW SESSION'
+})
+
+const completedDateLabel = computed(() => {
+  if (!props.session) return ''
+  const d = props.session.completedAt ?? props.session.scheduledAt
+  return new Date(d).toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+  })
+})
+
 const loading = ref(false)
 const submitted = ref(false)
 const submitError = ref('')
