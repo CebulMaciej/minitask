@@ -7,12 +7,15 @@ namespace FitPlan.Application.Clients.Queries;
 
 public record GetClientsQuery(string TrainerId) : IRequest<IReadOnlyList<ClientSummaryDto>>, ITenantScopedRequest;
 
-public class GetClientsHandler(IClientRepository clientRepo) : IRequestHandler<GetClientsQuery, IReadOnlyList<ClientSummaryDto>>
+public class GetClientsHandler(IClientRepository clientRepo, ISessionRepository sessionRepo)
+    : IRequestHandler<GetClientsQuery, IReadOnlyList<ClientSummaryDto>>
 {
     public async Task<IReadOnlyList<ClientSummaryDto>> Handle(GetClientsQuery request, CancellationToken ct)
     {
         var clients = await clientRepo.GetByTrainerAsync(request.TrainerId, ct);
-        return clients.Select(c => new ClientSummaryDto(c.Id, c.Name, c.Email, c.CreatedAt)).ToList();
+        var lastSessionTasks = clients.Select(c => sessionRepo.GetLastCompletedAtByClientAsync(c.Id, ct));
+        var lastSessions = await Task.WhenAll(lastSessionTasks);
+        return clients.Select((c, i) => new ClientSummaryDto(c.Id, c.Name, c.Email, c.CreatedAt, lastSessions[i])).ToList();
     }
 }
 

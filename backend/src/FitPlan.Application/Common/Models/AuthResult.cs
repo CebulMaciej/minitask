@@ -14,8 +14,12 @@ public record SessionDetailDto(
     string Id, string ClientId, string TrainerId, DateTime ScheduledAt,
     string Status, IReadOnlyList<ExerciseDto> Exercises, DateTime? StartedAt, DateTime? CompletedAt);
 
-public record ClientSummaryDto(string Id, string Name, string Email, DateTime CreatedAt);
+public record ClientSummaryDto(string Id, string Name, string Email, DateTime CreatedAt, DateTime? LastSessionDate);
 
 public record ClientDetailDto(string Id, string Name, string Email, DateTime CreatedAt, int TotalSessions, DateTime? LastSessionAt);
 
 public record PaginatedResult<T>(IReadOnlyList<T> Items, int Total, int Page, int Limit);
+
+public record DashboardSessionDto(
+    string Id, string ClientId, string ClientName,
+    DateTime ScheduledAt, string Status, int ExerciseCount, DateTime? CompletedAt);

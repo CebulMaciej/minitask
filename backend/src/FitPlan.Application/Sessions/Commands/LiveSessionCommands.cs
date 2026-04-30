@@ -23,22 +23,18 @@ public class StartSessionHandler(ISessionRepository sessionRepo) : IRequestHandl
 
 public record LogExerciseActualsCommand(
     string TrainerId, string SessionId, string ExerciseId,
-    int? ActualSets, int? ActualReps, double? ActualWeight, string? Notes) : IRequest<ExerciseDto>;
+    int? ActualSets, int? ActualReps, double? ActualWeight, string? Notes) : IRequest<SessionDetailDto>;
 
-public class LogExerciseActualsHandler(ISessionRepository sessionRepo) : IRequestHandler<LogExerciseActualsCommand, ExerciseDto>
+public class LogExerciseActualsHandler(ISessionRepository sessionRepo) : IRequestHandler<LogExerciseActualsCommand, SessionDetailDto>
 {
-    public async Task<ExerciseDto> Handle(LogExerciseActualsCommand request, CancellationToken ct)
+    public async Task<SessionDetailDto> Handle(LogExerciseActualsCommand request, CancellationToken ct)
     {
         var session = await sessionRepo.GetByIdAndTrainerAsync(request.SessionId, request.TrainerId, ct)
             ?? throw new NotFoundException("Session", request.SessionId);
 
         session.LogExerciseActuals(request.ExerciseId, request.ActualSets, request.ActualReps, request.ActualWeight, request.Notes);
         await sessionRepo.UpdateAsync(session, ct);
-
-        var exercise = session.Exercises.FirstOrDefault(e => e.Id == request.ExerciseId)
-            ?? throw new NotFoundException("Exercise", request.ExerciseId);
-
-        return exercise.ToDto();
+        return session.ToDetailDto();
     }
 }
 

@@ -24,7 +24,7 @@ public class GetSessionsHandler(ISessionRepository sessionRepo, IClientRepositor
             request.ClientId, request.TrainerId, request.From, request.To, request.Status, ct);
 
         return sessions.Select(s => new SessionSummaryDto(
-            s.Id, s.ScheduledAt, s.Status.ToString(), s.Exercises.Count, s.CompletedAt)).ToList();
+            s.Id, s.ScheduledAt, s.Status.ToStatusString(), s.Exercises.Count, s.CompletedAt)).ToList();
     }
 }
 

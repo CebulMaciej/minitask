@@ -11,6 +11,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    allowedHosts: ['app.wolfcore.pl'],
     proxy: {
       '/api': {
         target: 'http://api:5000',

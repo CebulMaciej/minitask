@@ -83,7 +83,7 @@
               v-for="session in getSessionsForDay(cell.iso)"
               :key="session.id"
               :session="session"
-              @click.stop="editSession(session)"
+              @click="editSession(session)"
             />
           </div>
         </div>
@@ -106,7 +106,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { clientsApi } from '@/api/clients'
-import { sessionsApi, type WorkoutSession } from '@/api/sessions'
+import { sessionsApi, type SessionSummary, type WorkoutSession } from '@/api/sessions'
 import SessionCard from '@/components/sessions/SessionCard.vue'
 import SessionFormModal from '@/components/sessions/SessionFormModal.vue'
 
@@ -115,7 +115,7 @@ const router = useRouter()
 const clientId = route.params.clientId as string
 
 const clientName = ref('')
-const sessions = ref<WorkoutSession[]>([])
+const sessions = ref<SessionSummary[]>([])
 const showModal = ref(false)
 const modalDate = ref('')
 const editingSession = ref<WorkoutSession | null>(null)
@@ -199,8 +199,10 @@ function newSession(date: string) {
   showModal.value = true
 }
 
-function editSession(session: WorkoutSession) {
-  editingSession.value = session
+async function editSession(session: SessionSummary) {
+  const full = await sessionsApi.get(clientId, session.id).catch(() => null)
+  if (!full) return
+  editingSession.value = full
   modalDate.value = ''
   showModal.value = true
 }
@@ -214,7 +216,7 @@ async function refresh() {
   const year = currentYear.value
   const month = currentMonth.value
   const from = isoDate(year, month, 1)
-  const to = isoDate(year, month, new Date(year, month + 1, 0).getDate())
+  const to = `${isoDate(year, month, new Date(year, month + 1, 0).getDate())}T23:59:59`
   sessions.value = await sessionsApi.list(clientId, from, to).catch(() => [])
 }
 

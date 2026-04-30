@@ -1,6 +1,31 @@
 import { apiClient } from './client'
 
-export type SessionStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED'
+export interface DashboardSession {
+  id: string
+  clientId: string
+  clientName: string
+  scheduledAt: string
+  status: SessionStatus
+  exerciseCount: number
+  completedAt?: string
+}
+
+export const dashboardApi = {
+  listSessions: (from?: string, to?: string) =>
+    apiClient
+      .get<DashboardSession[]>('/dashboard/sessions', { params: { from, to } })
+      .then((r) => r.data)
+}
+
+export type SessionStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+
+export interface SessionSummary {
+  id: string
+  scheduledAt: string
+  status: SessionStatus
+  exerciseCount: number
+  completedAt?: string
+}
 
 export interface ExercisePlanned {
   id: string
@@ -36,7 +61,7 @@ export interface CreateSessionInput {
 export const sessionsApi = {
   list: (clientId: string, from?: string, to?: string) =>
     apiClient
-      .get<WorkoutSession[]>(`/clients/${clientId}/sessions`, { params: { from, to } })
+      .get<SessionSummary[]>(`/clients/${clientId}/sessions`, { params: { from, to } })
       .then((r) => r.data),
 
   get: (clientId: string, sessionId: string) =>

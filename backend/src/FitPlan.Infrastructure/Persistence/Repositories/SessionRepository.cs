@@ -28,6 +28,17 @@ public class SessionRepository(IMongoContext context)
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<WorkoutSession>> GetByTrainerAsync(
+        string trainerId, DateTime? from, DateTime? to, CancellationToken ct = default)
+    {
+        var filter = Builders<WorkoutSession>.Filter.Eq(s => s.TrainerId, trainerId);
+        if (from.HasValue)
+            filter &= Builders<WorkoutSession>.Filter.Gte(s => s.ScheduledAt, from.Value);
+        if (to.HasValue)
+            filter &= Builders<WorkoutSession>.Filter.Lte(s => s.ScheduledAt, to.Value);
+        return await Collection.Find(filter).SortBy(s => s.ScheduledAt).ToListAsync(ct);
+    }
+
     public async Task<WorkoutSession?> GetByIdAndTrainerAsync(string id, string trainerId, CancellationToken ct = default)
         => await FindOneAsync(s => s.Id == id && s.TrainerId == trainerId, ct);
 
@@ -45,4 +56,14 @@ public class SessionRepository(IMongoContext context)
     public async Task<int> CountCompletedByClientAsync(string clientId, CancellationToken ct = default)
         => (int)await Collection.CountDocumentsAsync(
             s => s.ClientId == clientId && s.Status == SessionStatus.Completed, cancellationToken: ct);
+
+    public async Task<DateTime?> GetLastCompletedAtByClientAsync(string clientId, CancellationToken ct = default)
+    {
+        var session = await Collection
+            .Find(s => s.ClientId == clientId && s.Status == SessionStatus.Completed)
+            .SortByDescending(s => s.CompletedAt)
+            .Limit(1)
+            .FirstOrDefaultAsync(ct);
+        return session?.CompletedAt;
+    }
 }

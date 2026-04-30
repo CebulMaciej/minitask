@@ -70,8 +70,9 @@ public class LiveSessionHandlerTests
                 ActualSets: 3, ActualReps: 8, ActualWeight: 120.0, Notes: null),
             default);
 
-        result.UnexpectedProgress.Should().BeTrue();
-        result.ActualWeight.Should().Be(120.0);
+        var exercise = result.Exercises.First(e => e.Id == exerciseId);
+        exercise.UnexpectedProgress.Should().BeTrue();
+        exercise.ActualWeight.Should().Be(120.0);
     }
 
     [Fact]
@@ -89,7 +90,7 @@ public class LiveSessionHandlerTests
                 ActualSets: 3, ActualReps: 8, ActualWeight: 100.0, Notes: null),
             default);
 
-        result.UnexpectedProgress.Should().BeFalse();
+        result.Exercises.First(e => e.Id == exerciseId).UnexpectedProgress.Should().BeFalse();
     }
 
     [Fact]

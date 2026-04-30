@@ -1,7 +1,7 @@
 # ============================================================
 # Stage 1: Restore (layer-cached on .csproj changes only)
 # ============================================================
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS restore
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS restore
 WORKDIR /src
 
 COPY backend/FitPlan.sln ./
@@ -35,7 +35,7 @@ RUN dotnet publish src/FitPlan.Api/FitPlan.Api.csproj -c Release --no-build -o /
 # ============================================================
 # Stage 4: Runtime
 # ============================================================
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 
 ENV ASPNETCORE_URLS=http://+:5000

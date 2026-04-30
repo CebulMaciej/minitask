@@ -2,10 +2,10 @@
   <button
     class="w-full text-left p-2 rounded-lg text-xs transition hover:bg-bg-elevated"
     :class="statusClasses"
-    @click="$emit('click')"
+    @click.stop="$emit('click')"
   >
     <div class="font-mono font-medium">{{ time }}</div>
-    <div class="text-text-muted mt-0.5 truncate">{{ session.exercises.length }} exercises</div>
+    <div class="text-text-muted mt-0.5 truncate">{{ session.exerciseCount }} exercises</div>
     <span
       class="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide"
       :class="badgeClasses"
@@ -14,10 +14,10 @@
 </template>
 
 <script setup lang="ts">
-import type { WorkoutSession } from '@/api/sessions'
+import type { SessionSummary } from '@/api/sessions'
 import { computed } from 'vue'
 
-const props = defineProps<{ session: WorkoutSession }>()
+const props = defineProps<{ session: SessionSummary }>()
 defineEmits<{ click: [] }>()
 
 const time = computed(() =>

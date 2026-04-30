@@ -9,6 +9,9 @@ public interface ISessionRepository : IRepository<WorkoutSession>
         DateTime? from = null, DateTime? to = null, SessionStatus? status = null,
         CancellationToken ct = default);
 
+    Task<IReadOnlyList<WorkoutSession>> GetByTrainerAsync(string trainerId,
+        DateTime? from = null, DateTime? to = null, CancellationToken ct = default);
+
     Task<WorkoutSession?> GetByIdAndTrainerAsync(string id, string trainerId, CancellationToken ct = default);
     Task<WorkoutSession?> GetByIdAndClientAsync(string id, string clientId, CancellationToken ct = default);
 
@@ -16,4 +19,5 @@ public interface ISessionRepository : IRepository<WorkoutSession>
         int page, int limit, CancellationToken ct = default);
 
     Task<int> CountCompletedByClientAsync(string clientId, CancellationToken ct = default);
+    Task<DateTime?> GetLastCompletedAtByClientAsync(string clientId, CancellationToken ct = default);
 }

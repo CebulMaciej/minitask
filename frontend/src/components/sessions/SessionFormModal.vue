@@ -54,6 +54,17 @@
         </div>
 
         <div class="px-5 py-4 border-t border-border-default flex-shrink-0 space-y-2">
+          <button
+            v-if="session?.status === 'PLANNED' || session?.status === 'IN_PROGRESS'"
+            type="button"
+            @click="goToLive"
+            class="w-full py-2.5 rounded-lg font-semibold text-sm transition"
+            :class="session?.status === 'IN_PROGRESS'
+              ? 'bg-primary/20 text-primary border border-primary/40 hover:bg-primary/30'
+              : 'bg-primary text-text-inverse hover:bg-primary-dark'"
+          >
+            {{ session?.status === 'IN_PROGRESS' ? 'Continue Session' : 'Start Session' }}
+          </button>
           <p v-if="submitError" class="text-sm text-red-400">{{ submitError }}</p>
           <div class="flex gap-3">
             <button
@@ -98,6 +109,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { sessionsApi, type WorkoutSession } from '@/api/sessions'
 import ExerciseRow from './ExerciseRow.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
@@ -109,6 +121,14 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{ close: []; saved: []; deleted: [] }>()
+
+const router = useRouter()
+
+function goToLive() {
+  if (!props.session) return
+  emit('close')
+  router.push({ name: 'live-session', params: { clientId: props.clientId, sessionId: props.session.id } })
+}
 
 const isEdit = !!props.session
 const loading = ref(false)
@@ -149,16 +169,24 @@ function removeExercise(index: number) {
 }
 
 function updateExercise(index: number, field: string, value: unknown) {
+  console.log(`[updateExercise] [${index}].${field} =`, value, `(${typeof value})`)
   ;(form.exercises[index] as Record<string, unknown>)[field] = value
 }
 
 function isValid(): boolean {
   submitted.value = true
+  console.log('[isValid] scheduledAt:', JSON.stringify(form.scheduledAt))
   if (!form.scheduledAt) return false
+  console.log('[isValid] exercises:', JSON.stringify(form.exercises))
   if (form.exercises.length === 0) return false
-  return form.exercises.every(
-    (e) => e.name.trim() && e.sets && e.sets > 0 && e.reps && e.reps > 0
-  )
+  const result = form.exercises.every((e) => {
+    const nameOk = !!e.name.trim()
+    const setsOk = !!e.sets && e.sets > 0
+    const repsOk = !!e.reps && e.reps > 0
+    console.log(`[isValid] ex="${e.name}" nameOk=${nameOk} sets=${e.sets}(${typeof e.sets}) setsOk=${setsOk} reps=${e.reps}(${typeof e.reps}) repsOk=${repsOk}`)
+    return nameOk && setsOk && repsOk
+  })
+  return result
 }
 
 async function handleSave() {

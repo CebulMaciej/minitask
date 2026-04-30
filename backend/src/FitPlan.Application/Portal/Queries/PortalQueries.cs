@@ -18,7 +18,7 @@ public class GetPortalSessionsHandler(ISessionRepository sessionRepo)
         var total = await sessionRepo.CountCompletedByClientAsync(request.ClientId, ct);
 
         var items = sessions.Select(s => new SessionSummaryDto(
-            s.Id, s.ScheduledAt, s.Status.ToString(), s.Exercises.Count, s.CompletedAt)).ToList();
+            s.Id, s.ScheduledAt, s.Status.ToStatusString(), s.Exercises.Count, s.CompletedAt)).ToList();
 
         return new PaginatedResult<SessionSummaryDto>(items, total, request.Page, request.Limit);
     }

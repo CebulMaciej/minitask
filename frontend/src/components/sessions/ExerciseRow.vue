@@ -20,7 +20,9 @@
             min="1"
             placeholder="3"
             class="w-full bg-bg-subtle border border-border-default rounded-lg px-2 py-2 text-sm text-text-primary focus:outline-none focus:border-primary transition text-center"
+            :class="{ 'border-red-500': showNameError && !exercise.sets }"
           />
+          <p v-if="showNameError && !exercise.sets" class="mt-0.5 text-xs text-red-400 text-center">Required</p>
         </div>
         <div>
           <label class="text-xs text-text-muted block mb-1">Reps</label>
@@ -31,7 +33,9 @@
             min="1"
             placeholder="10"
             class="w-full bg-bg-subtle border border-border-default rounded-lg px-2 py-2 text-sm text-text-primary focus:outline-none focus:border-primary transition text-center"
+            :class="{ 'border-red-500': showNameError && !exercise.reps }"
           />
+          <p v-if="showNameError && !exercise.reps" class="mt-0.5 text-xs text-red-400 text-center">Required</p>
         </div>
         <div>
           <label class="text-xs text-text-muted block mb-1">Weight</label>
