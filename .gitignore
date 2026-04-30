@@ -4,6 +4,7 @@ obj/
 
 # Dependencies
 node_modules/
+frontend/.pnpm-store/
 
 # .NET user-specific files
 *.user
