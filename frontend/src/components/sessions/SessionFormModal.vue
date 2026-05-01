@@ -190,9 +190,14 @@ const form = reactive<{ scheduledAt: string; exercises: ExerciseForm[] }>({
   exercises: []
 })
 
+function utcToLocalInput(utcStr: string): string {
+  const d = new Date(utcStr)
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+}
+
 onMounted(() => {
   if (props.session) {
-    form.scheduledAt = props.session.scheduledAt.slice(0, 16)
+    form.scheduledAt = utcToLocalInput(props.session.scheduledAt)
     form.exercises = props.session.exercises.map((e) => ({
       name: e.name,
       sets: e.sets,
